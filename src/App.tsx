@@ -1,37 +1,38 @@
-import { HashRouter, Routes, Route } from 'react-router-dom';
+// src/App.tsx
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { Login } from './pages/Login';
+import { GameWrapper } from './pages/GameWrapper';
 
-// Por enquanto, criaremos componentes "placeholder" (falsos) 
-// só para testar a navegação.
-function LoginScreen() {
-  return (
-    <div style={{ padding: 20 }}>
-      <h1>🛡️ Login</h1>
-      <p>Tela de autenticação vai aqui.</p>
-    </div>
-  );
-}
+// Componente Especial: Rota Protegida
+// Se não tiver usuário logado, chuta ele de volta pro Login
+function PrivateRoute({ children }: { children: JSX.Element }) {
+  const { user } = useAuth();
+  
+  if (!user) {
+    return <Navigate to="/" />;
+  }
 
-function GameScreen() {
-  return (
-    <div style={{ padding: 20 }}>
-      <h1>⚔️ Pomodoro RPG</h1>
-      <p>O jogo vai acontecer aqui.</p>
-    </div>
-  );
+  return children;
 }
 
 function App() {
   return (
-    // HashRouter é o ideal para Electron (evita erros de carregar arquivos locais)
-    <HashRouter>
-      <Routes>
-        {/* Rota inicial ("/") vai para o Login */}
-        <Route path="/" element={<LoginScreen />} />
-        
-        {/* Rota "/game" será o jogo principal */}
-        <Route path="/game" element={<GameScreen />} />
-      </Routes>
-    </HashRouter>
+    <AuthProvider>
+      <HashRouter>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route 
+            path="/game" 
+            element={
+              <PrivateRoute>
+                <GameWrapper />
+              </PrivateRoute>
+            } 
+          />
+        </Routes>
+      </HashRouter>
+    </AuthProvider>
   );
 }
 

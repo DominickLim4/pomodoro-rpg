@@ -1,30 +1,57 @@
-# React + TypeScript + Vite
+# ⚔️ Pomodoro RPG
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> Transforme sua produtividade em uma jornada épica.
 
-Currently, two official plugins are available:
+O **Pomodoro RPG** é uma aplicação Desktop que gamifica o método Pomodoro. Ao invés de apenas contar o tempo, você luta contra monstros (suas tarefas). Ao manter o foco, seu personagem ganha XP, Ouro e sobe de nível.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## Expanding the ESLint configuration
+## 📸 Screenshots
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+*(Espaço reservado para você colocar prints do seu projeto depois. Ex: Tela de Login, Tela de Combate, etc)*
 
-- Configure the top-level `parserOptions` property like this:
+---
 
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
-```
+## ✨ Funcionalidades
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+* **🛡️ Sistema de Contas:** Crie sua conta e salve seu progresso na nuvem.
+* **🧙‍♂️ Criação de Personagem:** Escolha entre Guerreiro, Mago ou Ladino.
+* **📜 Diário de Quests:**
+    * Crie tarefas (Quests) com nome e duração.
+    * Gerencie abas de "A Fazer" e "Concluídas".
+* **⏱️ Modo de Combate (Pomodoro):**
+    * Ao iniciar uma tarefa, um timer visual começa.
+    * O foco total é recompensado no final.
+* **📈 Progressão de RPG:**
+    * Ganhe XP e Ouro baseados no tempo focado (1 min = 10 XP / 5 Ouro).
+    * Suba de nível automaticamente ao atingir a meta de XP.
+    * Barra de progresso visual e persistente.
+
+---
+
+## 🛠️ Tecnologias Utilizadas
+
+Este projeto foi desenvolvido utilizando uma stack moderna e performática:
+
+* **[Electron](https://www.electronjs.org/):** Para criar a aplicação Desktop multiplataforma.
+* **[React](https://reactjs.org/):** Biblioteca para construção da interface.
+* **[TypeScript](https://www.typescriptlang.org/):** Para tipagem estática e segurança no código.
+* **[Vite](https://vitejs.dev/):** Build tool ultra-rápida.
+* **[Firebase](https://firebase.google.com/):** Backend-as-a-Service (Auth e Firestore Database).
+* **[Phosphor Icons](https://phosphoricons.com/):** Biblioteca de ícones.
+
+---
+
+## 🚀 Como rodar o projeto
+
+### Pré-requisitos
+
+Antes de começar, você precisa ter instalado em sua máquina:
+* [Git](https://git-scm.com)
+* [Node.js](https://nodejs.org/en/)
+
+### 1. Clonar o repositório
+
+```bash
+git clone [https://github.com/SEU_USUARIO/pomodoro-rpg.git](https://github.com/SEU_USUARIO/pomodoro-rpg.git)
+cd pomodoro-rpg

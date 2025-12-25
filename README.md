@@ -8,7 +8,7 @@ O **Pomodoro RPG** é uma aplicação Desktop que gamifica o método Pomodoro. A
 
 ## 📸 Screenshots
 
-*(Espaço reservado para você colocar prints do seu projeto depois. Ex: Tela de Login, Tela de Combate, etc)*
+*prints do app*
 
 ---
 

@@ -1,16 +1,20 @@
+// src/pages/GameWrapper.tsx
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getCharacter, addReward } from '../services/characterService';
+import { getCharacter, processCombatResult } from '../services/characterService';
 import { completeQuest } from '../services/questService';
+import { simulateCombat } from '../utils/combatEngine';
 import { Character, Quest } from '../types';
-import { Area } from '../data/gameData'; // Importando Tipo de Área
+import { Area } from '../data/gameData';
 
+// Componentes
 import { CreateCharacter } from './CreateCharacter';
 import { QuestBoard } from '../components/QuestBoard';
 import { ActiveQuest } from '../components/ActiveQuest';
 import { CharacterStats } from '../components/CharacterStats';
 import { AdminPanel } from '../components/AdminPanel';
-import { AreaSelector } from '../components/AreaSelector'; // Importando o Seletor
+import { AreaSelector } from '../components/AreaSelector';
+import { Inventory } from '../components/Inventory';
 import { CircleNotch } from 'phosphor-react';
 
 export function GameWrapper() {
@@ -19,15 +23,14 @@ export function GameWrapper() {
   const [character, setCharacter] = useState<Character | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // ESTADOS DO JOGO
-  // 1. Qual quest está rodando agora?
+  // --- ESTADOS DO JOGO ---
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
-  
-  // 2. Qual área o jogador escolheu? (NOVO)
   const [activeArea, setActiveArea] = useState<Area | null>(null);
-
-  // 3. Qual quest foi clicada mas ainda falta escolher a área? (NOVO)
   const [pendingQuest, setPendingQuest] = useState<Quest | null>(null);
+
+  // --- TRAVA DE SEGURANÇA (Correção do Bug Duplo) ---
+  // Impede que a recompensa seja processada duas vezes simultaneamente
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const fetchCharacter = async () => {
     if (!user) return;
@@ -45,51 +48,90 @@ export function GameWrapper() {
     fetchCharacter();
   }, [user]);
 
-  // --- NOVAS LÓGICAS DE INÍCIO (Aqui está o que você procurava) ---
+  // --- HANDLERS DE INÍCIO ---
 
-  // Passo 1: Usuário clica em "Iniciar" na lista
   const handleStartClick = (quest: Quest) => {
-    // Ao invés de começar direto, guardamos a quest e abrimos o seletor
     setPendingQuest(quest); 
   };
 
-  // Passo 2: Usuário escolhe a Área no modal
   const handleAreaSelect = (area: Area) => {
     if (pendingQuest) {
-      setActiveArea(area);          // Salva a área
-      setActiveQuest(pendingQuest); // Inicia o Timer agora sim
-      setPendingQuest(null);        // Fecha o modal
+      setActiveArea(area);
+      setActiveQuest(pendingQuest);
+      setPendingQuest(null);
     }
   };
 
-  // --- LÓGICAS DE FIM DE JOGO ---
+  // --- HANDLERS DE FIM (Com proteção contra bugs) ---
 
   const handleQuestComplete = async () => {
-    if (!user || !activeQuest) return;
+    // 1. CHECAGEM DE SEGURANÇA: Se já está processando, PARA TUDO.
+    if (isProcessing) return;
+    if (!user || !activeQuest || !activeArea || !character || !activeQuest.id) return;
+
+    // 2. ATIVA A TRAVA
+    setIsProcessing(true);
 
     try {
-      const reward = await addReward(user.uid, activeQuest.durationMinutes);
-      await completeQuest(user.uid, activeQuest.id!); // O ! garante que tem ID
+      // Simulação
+      const result = simulateCombat(character, activeArea, activeQuest.durationMinutes);
 
-      let mensagem = `🎉 Missão Cumprida!\n\nVocê ganhou:\n✨ +${reward.xpGained} XP\n💰 +${reward.goldGained} Ouro`;
-      if (reward.leveledUp) mensagem += `\n\n🆙 LEVEL UP! Nível ${reward.newLevel}!`;
+      // Salva no Banco (XP, Itens, etc)
+      await processCombatResult(user.uid, result);
+      
+      // Marca Quest como completa
+      await completeQuest(user.uid, activeQuest.id);
 
-      alert(mensagem);
+      // --- GERAR RELATÓRIO DO ALERTA ---
+      let report = `⚔️ Relatório de Batalha em ${activeArea.name}:\n\n`;
+      
+      // Inimigos
+      if (result.kills.length > 0) {
+        report += `💀 Inimigos Derrotados:\n`;
+        result.kills.forEach(k => report += `   - ${k.count}x ${k.enemyName}\n`);
+      } else {
+        report += `💀 Nenhum inimigo derrotado.\n`;
+      }
+      
+      // XP e Ouro
+      report += `\n💰 Ganhos:\n   +${result.xpEarned} XP\n   +${result.goldEarned} Ouro`;
+      
+      // Loot (Agrupado para ficar bonito)
+      if (result.itemsDropped.length > 0) {
+        report += `\n\n🎒 Loot Encontrado:\n`;
+        // Pega nomes únicos para não repetir "Geléia" 3 vezes
+        const uniqueItems = Array.from(new Set(result.itemsDropped.map(i => i.name)));
+        
+        uniqueItems.forEach(name => {
+          const count = result.itemsDropped.filter(i => i.name === name).length;
+          report += `   - ${count}x ${name}\n`;
+        });
+      }
+
+      report += `\n❤️ Dano Sofrido: -${result.hpLost} HP`;
+
+      alert(report);
+      
+      // Atualiza a tela
       await fetchCharacter();
 
     } catch (error) {
       console.error("Erro:", error);
-      alert("Erro ao salvar progresso.");
+      alert("Erro ao processar o combate. Tente novamente.");
     } finally {
+      // 3. LIMPEZA FINAL
       setActiveQuest(null);
-      setActiveArea(null); // Limpa a área
+      setActiveArea(null);
+      
+      // Libera a trava após um pequeno delay para garantir
+      setTimeout(() => setIsProcessing(false), 500);
     }
   };
 
   const handleQuestCancel = () => {
-    if (confirm("Tem certeza? Você não ganhará recompensa.")) {
+    if (confirm("Tem certeza? Você fugirá da batalha e não ganhará nada.")) {
       setActiveQuest(null);
-      setActiveArea(null); // Limpa a área
+      setActiveArea(null);
     }
   };
 
@@ -99,7 +141,7 @@ export function GameWrapper() {
     return (
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
          <CircleNotch size={40} className="animate-spin" /> 
-         <p style={{ marginLeft: 10 }}>Carregando perfil...</p>
+         <p style={{ marginLeft: 10 }}>Carregando...</p>
       </div>
     );
   }
@@ -109,9 +151,8 @@ export function GameWrapper() {
   }
 
   return (
-    <div style={{ padding: 40, maxWidth: 800, margin: '0 auto', paddingBottom: 100 }}>
+    <div style={{ padding: 40, maxWidth: 900, margin: '0 auto', paddingBottom: 100 }}>
       
-      {/* MODAL DE SELEÇÃO DE ÁREA (Só aparece se tiver quest pendente) */}
       {pendingQuest && (
         <AreaSelector 
           userLevel={character.level}
@@ -122,7 +163,7 @@ export function GameWrapper() {
 
       <AdminPanel onUpdate={fetchCharacter} />
 
-      {/* HEADER DO PERSONAGEM */}
+      {/* HEADER */}
       <header style={{ 
         background: '#202024', padding: 24, borderRadius: 8, 
         display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'center',
@@ -143,34 +184,41 @@ export function GameWrapper() {
             <span>❤️ {character.currentHp} / {character.maxHp} HP</span>
             <span style={{ color: '#F5A623' }}>💰 {character.gold} Ouro</span>
           </div>
-          {/* Barra de XP simplificada visualmente */}
-          <div style={{ width: '100%', background: '#333', height: 6, borderRadius: 3 }}>
-             <div style={{ width: `${(character.xp / (character.level * 500)) * 100}%`, background: '#8257e5', height: '100%' }} />
+          
+          <div style={{ width: '100%', background: '#333', height: 6, borderRadius: 3, overflow: 'hidden' }}>
+             <div style={{ 
+               width: `${Math.min(100, (character.xp / (character.level * 500)) * 100)}%`, 
+               background: '#8257e5', height: '100%', transition: 'width 0.5s' 
+             }} />
           </div>
         </div>
       </header>
 
-      {/* ÁREA DE CONTEÚDO */}
+      {/* CONTEÚDO PRINCIPAL */}
       <div style={{ marginTop: 40 }}>
         
         {activeQuest && activeArea ? (
-          // MODO COMBATE
           <ActiveQuest 
             quest={activeQuest} 
-            // area={activeArea} <-- Passaremos isso na Fase C
+            area={activeArea}
             onComplete={handleQuestComplete}
             onCancel={handleQuestCancel}
           />
         ) : (
-          // MODO LISTA
           <>
             <h2 style={{ marginBottom: 10 }}>📜 Diário de Missões</h2>
-            
-            {/* AQUI ESTÁ A MUDANÇA NO QUESTBOARD */}
-            {/* Agora passamos a função handleStartClick ao invés de setActiveQuest direto */}
             <QuestBoard onStartQuest={handleStartClick} />
             
-            <CharacterStats character={character} />
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+              gap: 20, marginTop: 20 
+            }}>
+              <CharacterStats character={character} />
+              
+              {/* Agora passamos onUpdate para o Inventário poder atualizar o Ouro ao vender itens */}
+              <Inventory items={character.inventory} onUpdate={fetchCharacter} />
+            </div>
           </>
         )}
 

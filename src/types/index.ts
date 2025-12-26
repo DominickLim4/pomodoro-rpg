@@ -29,6 +29,32 @@ export interface Character {
   createdAt: Date;
 }
 
+export interface InventoryItem {
+  id: string;
+  name: string;
+  quantity: number;
+}
+
+export interface Character {
+  uid: string;
+  name: string;
+  class: CharacterClass;
+  level: number;
+  xp: number;
+  gold: number;
+  
+  maxHp: number;
+  currentHp: number;
+  
+  attributes: Attributes;
+  statPoints: number;
+
+  // NOVO: A Mochila do Jogador
+  inventory: InventoryItem[]; 
+  
+  createdAt: Date;
+}
+
 export interface Quest {
   id?: string;
   title: string;

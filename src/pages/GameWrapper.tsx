@@ -1,14 +1,16 @@
 // src/pages/GameWrapper.tsx
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getCharacter, addReward } from '../services/characterService'; // Importamos o addReward
+import { getCharacter, addReward } from '../services/characterService';
 import { Character, Quest } from '../types';
 import { CreateCharacter } from './CreateCharacter';
 import { QuestBoard } from '../components/QuestBoard';
 import { ActiveQuest } from '../components/ActiveQuest';
 import { CircleNotch } from 'phosphor-react';
 import { ProgressBar } from '../components/ProgressBar';
-import { completeQuest } from '../services/questService'; // Adicione ao import existente
+import { completeQuest } from '../services/questService';
+import { CharacterStats } from '../components/CharacterStats';
+import { AdminPanel } from '../components/AdminPanel';
 
 export function GameWrapper() {
   const { user } = useAuth();
@@ -96,7 +98,10 @@ export function GameWrapper() {
   return (
     <div style={{ padding: 40, maxWidth: 800, margin: '0 auto' }}>
       
-{/* HEADER DO PERSONAGEM - VERSÃO 2.0 (Com Barra de XP) */}
+    {/* Botão Admin Flutuante */}
+    <AdminPanel onUpdate={fetchCharacter} />
+
+    {/* HEADER DO PERSONAGEM - VERSÃO 2.0 (Com Barra de XP) */}
       <header style={{ 
         background: '#202024', padding: 24, borderRadius: 8, 
         // Layout em Grid para organizar melhor: Info Esquerda | Status Direita
@@ -157,6 +162,10 @@ export function GameWrapper() {
           <>
             <h2 style={{ marginBottom: 10 }}>📜 Diário de Missões</h2>
             <QuestBoard onStartQuest={(quest) => setActiveQuest(quest)} />
+
+            {/* --- NOVO: PAINEL DE ATRIBUTOS --- */}
+            {/* Só mostra quando não está em missão para não distrair */}
+            <CharacterStats character={character} /> 
           </>
         )}
 

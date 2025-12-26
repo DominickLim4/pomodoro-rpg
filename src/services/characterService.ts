@@ -1,32 +1,28 @@
 // src/services/characterService.ts
 import { db } from '../lib/firebase';
-import { Character, CharacterClass } from '../types';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'; // Adicione updateDoc
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { Character, CharacterClass, Attributes } from '../types';
 
-// Função auxiliar para definir atributos iniciais baseados na classe
+// Função auxiliar para status iniciais (Base + HP)
 const getInitialStats = (classe: CharacterClass) => {
+  // HP base muda por classe, atributos começam todos em 1 (Novato style)
+  const baseAttributes: Attributes = { str: 1, agi: 1, vit: 1, int: 1, dex: 1, luk: 1 };
+  
   switch (classe) {
-    case 'guerreiro': return { maxHp: 100 };
-    case 'mago': return { maxHp: 60 };
-    case 'ladino': return { maxHp: 80 };
+    case 'guerreiro': return { maxHp: 150, attrs: { ...baseAttributes, str: 5, vit: 3 } }; // Guerreiro começa mais forte
+    case 'mago':      return { maxHp: 80,  attrs: { ...baseAttributes, int: 5, dex: 3 } }; // Mago começa mais inteligente
+    case 'ladino':    return { maxHp: 100, attrs: { ...baseAttributes, agi: 5, luk: 3 } }; // Ladino mais rápido
   }
 };
 
-// 1. Buscar Personagem
 export const getCharacter = async (userId: string): Promise<Character | null> => {
-  // Referência ao documento: users/USER_ID/character/main
-  // (Estamos criando uma sub-coleção 'character' e um doc fixo chamado 'main')
   const docRef = doc(db, 'users', userId, 'character', 'main');
   const docSnap = await getDoc(docRef);
-
-  if (docSnap.exists()) {
-    return docSnap.data() as Character;
-  } else {
-    return null;
-  }
+  if (docSnap.exists()) return docSnap.data() as Character;
+  return null;
 };
 
-// 2. Criar Personagem
+// ATUALIZADO: Criação com atributos
 export const createCharacter = async (userId: string, name: string, classe: CharacterClass) => {
   const stats = getInitialStats(classe);
   
@@ -39,66 +35,70 @@ export const createCharacter = async (userId: string, name: string, classe: Char
     gold: 0,
     maxHp: stats.maxHp,
     currentHp: stats.maxHp,
-    createdAt: new Date() // O Firestore converte isso para Timestamp automaticamente
+    attributes: stats.attrs, // Adiciona os atributos iniciais
+    statPoints: 0,           // Começa com 0 pontos para gastar
+    createdAt: new Date()
   };
 
-  // Salva no caminho: users/{userId}/character/main
   await setDoc(doc(db, 'users', userId, 'character', 'main'), newCharacter);
-  
   return newCharacter;
 };
 
-// src/services/characterService.ts
-// ... (imports anteriores mantidos)
-
-// ... (funções getCharacter e createCharacter mantidas) ...
-
-// NOVA FUNÇÃO: Adicionar XP e Ouro
+// ATUALIZADO: Level Up concede Stat Points
 export const addReward = async (userId: string, minutes: number) => {
   const charRef = doc(db, 'users', userId, 'character', 'main');
   const docSnap = await getDoc(charRef);
-
   if (!docSnap.exists()) throw new Error("Personagem não encontrado!");
 
   const char = docSnap.data() as Character;
-
-  // 1. Calcula Ganhos
   const xpGained = minutes * 10;
   const goldGained = minutes * 5;
 
   let newXp = char.xp + xpGained;
-  const newGold = char.gold + goldGained;
   let newLevel = char.level;
-  let newMaxHp = char.maxHp;
+  let newStatPoints = char.statPoints || 0; // Garante que não é undefined
   let leveledUp = false;
 
-  // 2. Lógica de Level Up (Loop caso suba múltiplos níveis)
-  // XP Necessário = Nível * 500
   let xpToNextLevel = newLevel * 500;
 
   while (newXp >= xpToNextLevel) {
-    newXp -= xpToNextLevel; // Remove o XP usado e sobra o resto
-    newLevel++;             // Sobe nível
-    newMaxHp += 20;         // Ganha 20 de vida máxima
+    newXp -= xpToNextLevel;
+    newLevel++;
+    newStatPoints += 5; // GANHA 5 PONTOS POR NÍVEL
     leveledUp = true;
-    
-    // Recalcula a meta para o próximo (agora mais difícil)
     xpToNextLevel = newLevel * 500;
   }
 
-  // 3. Salva no Banco
+  // Se o personagem antigo não tinha atributos (migração), inicializa com 1
+  const currentAttrs = char.attributes || { str:1, agi:1, vit:1, int:1, dex:1, luk:1 };
+
   await updateDoc(charRef, {
     xp: newXp,
-    gold: newGold,
+    gold: char.gold + goldGained,
     level: newLevel,
-    maxHp: newMaxHp,
-    currentHp: newMaxHp // Cura o personagem ao subir de nível ou terminar quest
+    statPoints: newStatPoints,
+    currentHp: char.maxHp, // Cura completa
+    attributes: currentAttrs // Garante que salva se não existia
   });
 
-  return {
-    xpGained,
-    goldGained,
-    leveledUp,
-    newLevel
-  };
+  return { xpGained, goldGained, leveledUp, newLevel };
+};
+
+// NOVA FUNÇÃO: Distribuir Pontos
+export const upgradeAttribute = async (userId: string, attribute: keyof Attributes) => {
+  const charRef = doc(db, 'users', userId, 'character', 'main');
+  const docSnap = await getDoc(charRef);
+  
+  if (!docSnap.exists()) return;
+  const char = docSnap.data() as Character;
+
+  if (char.statPoints > 0) {
+    const newAttributes = { ...char.attributes };
+    newAttributes[attribute] += 1; // Aumenta 1 no atributo escolhido
+
+    await updateDoc(charRef, {
+      attributes: newAttributes,
+      statPoints: char.statPoints - 1 // Gasta 1 ponto
+    });
+  }
 };

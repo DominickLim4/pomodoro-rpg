@@ -1,26 +1,39 @@
-// src/types/index.ts
-
-// Definimos quais classes existem no jogo
 export type CharacterClass = 'guerreiro' | 'mago' | 'ladino';
 
-// Definimos o formato exato do nosso Personagem no banco de dados
+// Novo: Objeto de Atributos
+export interface Attributes {
+  str: number; // Força (Dano Físico)
+  agi: number; // Agilidade (Velocidade de Ataque)
+  vit: number; // Vitalidade (Vida Máxima)
+  int: number; // Inteligência (Dano Mágico)
+  dex: number; // Destreza (Precisão/Estabilidade)
+  luk: number; // Sorte (Crítico/Drops)
+}
+
 export interface Character {
-  uid: string;          // ID do usuário dono do personagem
-  name: string;         // Nome do herói
+  uid: string;
+  name: string;
   class: CharacterClass;
   level: number;
   xp: number;
   gold: number;
-  maxHp: number;        // Vida Máxima
-  currentHp: number;    // Vida Atual
-  createdAt: Date;      // Data de criação
+  
+  // Stats de Vida
+  maxHp: number;
+  currentHp: number;
+  
+  // Sistema de Atributos
+  attributes: Attributes;
+  statPoints: number; // Pontos livres para distribuir
+  
+  createdAt: Date;
 }
 
 export interface Quest {
-  id?: string;          // O ID do Firestore (opcional na criação)
-  title: string;        // Título (ex: "Matar Boss Relatório")
-  description: string;  // Detalhes
-  durationMinutes: number; // Tempo de foco (ex: 25 min)
+  id?: string;
+  title: string;
+  description: string;
+  durationMinutes: number;
   status: 'pending' | 'in_progress' | 'completed';
   createdAt: Date;
 }

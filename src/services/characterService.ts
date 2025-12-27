@@ -3,7 +3,7 @@ import { db } from '../lib/firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { Character, CharacterClass, Attributes } from '../types';
 import { CombatResult } from '../utils/combatEngine';
-import { InventoryItem } from '../types';
+import { InventoryItem, EquipmentSlot } from '../types';
 import { AREAS } from '../data/gameData';
 
 // Função auxiliar para status iniciais (Base + HP)
@@ -43,7 +43,7 @@ export const createCharacter = async (userId: string, name: string, classe: Char
                // Começa com 0 pontos para gastar
     inventory: [],
     equipment: {},
-    
+
     createdAt: new Date()
   };
 
@@ -209,5 +209,115 @@ export const sellItemBatch = async (userId: string, itemId: string, amount: numb
   await updateDoc(charRef, {
     inventory: inventory,
     gold: char.gold + (price * amount)
+  });
+};
+
+// FUNÇÃO: EQUIPAR ITEM
+export const equipItem = async (userId: string, itemId: string) => {
+  const charRef = doc(db, 'users', userId, 'character', 'main');
+  const docSnap = await getDoc(charRef);
+  if (!docSnap.exists()) return;
+  
+  const char = docSnap.data() as Character;
+  const inventory = char.inventory || [];
+  const equipment = char.equipment || {};
+
+  // 1. Achar o item no inventário
+  const itemIndex = inventory.findIndex(i => i.id === itemId);
+  if (itemIndex === -1) return; // Item não existe
+
+  //const itemToEquip = inventory[itemIndex];
+
+  // 2. Descobrir os dados do item (Slot, Atk, etc)
+  // Precisamos buscar no gameData porque o inventário as vezes salva versão resumida
+  let itemMeta = null;
+  for (const area of AREAS) {
+    for (const enemy of area.enemies) {
+      const found = enemy.drops.find(d => d.id === itemId);
+      if (found) itemMeta = found;
+    }
+  }
+
+  // Se não achou metadata ou não é equipamento, aborta
+  if (!itemMeta || itemMeta.type !== 'equipment' || !itemMeta.slot) {
+    console.error("Tentou equipar item inválido ou sem slot");
+    return;
+  }
+
+  const slot = itemMeta.slot as EquipmentSlot;
+
+  // 3. Se já tem algo equipado no slot, desequipa (troca)
+  if (equipment[slot]) {
+    const oldItem = equipment[slot]!;
+    // Devolve o item velho pra mochila
+    const existingInInv = inventory.findIndex(i => i.id === oldItem.id);
+    if (existingInInv >= 0) {
+      inventory[existingInInv].quantity += 1;
+    } else {
+      inventory.push({ ...oldItem, quantity: 1 });
+    }
+  }
+
+  // 4. Equipa o novo item
+  // Salva no slot uma cópia do item com os stats importantes
+  equipment[slot] = {
+    id: itemMeta.id,
+    name: itemMeta.name,
+    quantity: 1,
+    type: 'equipment',
+    slot: slot,
+    atk: itemMeta.atk,
+    def: itemMeta.def,
+    stats: itemMeta.stats
+  };
+
+  // 5. Remove da mochila
+  if (inventory[itemIndex].quantity > 1) {
+    inventory[itemIndex].quantity -= 1;
+  } else {
+    inventory.splice(itemIndex, 1);
+  }
+
+  // 6. Salva tudo
+  await updateDoc(charRef, {
+    inventory,
+    equipment
+  });
+};
+
+// FUNÇÃO: DESEQUIPAR ITEM
+export const unequipItem = async (userId: string, slot: EquipmentSlot) => {
+  const charRef = doc(db, 'users', userId, 'character', 'main');
+  const docSnap = await getDoc(charRef);
+  if (!docSnap.exists()) return;
+
+  const char = docSnap.data() as Character;
+  const inventory = char.inventory || [];
+  const equipment = char.equipment || {};
+
+  // 1. Verifica se tem algo no slot
+  const itemToUnequip = equipment[slot];
+  if (!itemToUnequip) return;
+
+  // 2. Remove do corpo
+  delete equipment[slot];
+
+  // 3. Devolve para a mochila
+  const existingInInv = inventory.findIndex(i => i.id === itemToUnequip.id);
+  if (existingInInv >= 0) {
+    inventory[existingInInv].quantity += 1;
+  } else {
+    inventory.push({
+      id: itemToUnequip.id,
+      name: itemToUnequip.name,
+      quantity: 1,
+      type: 'equipment' // Garante tipagem básica
+    });
+  }
+
+  // 4. Salva
+  await updateDoc(charRef, {
+    inventory,
+    equipment
   });
 };

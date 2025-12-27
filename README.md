@@ -53,5 +53,7 @@ Antes de começar, você precisa ter instalado em sua máquina:
 ### 1. Clonar o repositório
 
 ```bash
-git clone [https://github.com/DominickLim4/pomodoro-rpg.git](https://github.com/DominickLim4/pomodoro-rpg.git)
+git clone [https://github.com/DominickLim4/pomodoro-rpg.git]
 cd pomodoro-rpg
+npm install
+npm run dev

@@ -15,6 +15,7 @@ import { CharacterStats } from '../components/CharacterStats';
 import { AdminPanel } from '../components/AdminPanel';
 import { AreaSelector } from '../components/AreaSelector';
 import { Inventory } from '../components/Inventory';
+import { ProfileModal } from '../components/ProfileModal'; // NOVO: Modal de Perfil
 import { CircleNotch } from 'phosphor-react';
 
 export function GameWrapper() {
@@ -27,9 +28,11 @@ export function GameWrapper() {
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
   const [activeArea, setActiveArea] = useState<Area | null>(null);
   const [pendingQuest, setPendingQuest] = useState<Quest | null>(null);
+  
+  // Controle do Modal de Perfil
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  // --- TRAVA DE SEGURANÇA (Correção do Bug Duplo) ---
-  // Impede que a recompensa seja processada duas vezes simultaneamente
+  // Trava de segurança contra cliques duplos/bugs de recompensa
   const [isProcessing, setIsProcessing] = useState(false);
 
   const fetchCharacter = async () => {
@@ -48,7 +51,7 @@ export function GameWrapper() {
     fetchCharacter();
   }, [user]);
 
-  // --- HANDLERS DE INÍCIO ---
+  // --- HANDLERS ---
 
   const handleStartClick = (quest: Quest) => {
     setPendingQuest(quest); 
@@ -62,30 +65,23 @@ export function GameWrapper() {
     }
   };
 
-  // --- HANDLERS DE FIM (Com proteção contra bugs) ---
-
   const handleQuestComplete = async () => {
-    // 1. CHECAGEM DE SEGURANÇA: Se já está processando, PARA TUDO.
     if (isProcessing) return;
     if (!user || !activeQuest || !activeArea || !character || !activeQuest.id) return;
 
-    // 2. ATIVA A TRAVA
     setIsProcessing(true);
 
     try {
-      // Simulação
+      // 1. Simulação Matemática
       const result = simulateCombat(character, activeArea, activeQuest.durationMinutes);
 
-      // Salva no Banco (XP, Itens, etc)
+      // 2. Salvar Resultados
       await processCombatResult(user.uid, result);
-      
-      // Marca Quest como completa
       await completeQuest(user.uid, activeQuest.id);
 
-      // --- GERAR RELATÓRIO DO ALERTA ---
+      // 3. Gerar Relatório
       let report = `⚔️ Relatório de Batalha em ${activeArea.name}:\n\n`;
       
-      // Inimigos
       if (result.kills.length > 0) {
         report += `💀 Inimigos Derrotados:\n`;
         result.kills.forEach(k => report += `   - ${k.count}x ${k.enemyName}\n`);
@@ -93,15 +89,11 @@ export function GameWrapper() {
         report += `💀 Nenhum inimigo derrotado.\n`;
       }
       
-      // XP e Ouro
       report += `\n💰 Ganhos:\n   +${result.xpEarned} XP\n   +${result.goldEarned} Ouro`;
       
-      // Loot (Agrupado para ficar bonito)
       if (result.itemsDropped.length > 0) {
         report += `\n\n🎒 Loot Encontrado:\n`;
-        // Pega nomes únicos para não repetir "Geléia" 3 vezes
         const uniqueItems = Array.from(new Set(result.itemsDropped.map(i => i.name)));
-        
         uniqueItems.forEach(name => {
           const count = result.itemsDropped.filter(i => i.name === name).length;
           report += `   - ${count}x ${name}\n`;
@@ -111,19 +103,14 @@ export function GameWrapper() {
       report += `\n❤️ Dano Sofrido: -${result.hpLost} HP`;
 
       alert(report);
-      
-      // Atualiza a tela
       await fetchCharacter();
 
     } catch (error) {
       console.error("Erro:", error);
-      alert("Erro ao processar o combate. Tente novamente.");
+      alert("Erro ao processar o combate.");
     } finally {
-      // 3. LIMPEZA FINAL
       setActiveQuest(null);
       setActiveArea(null);
-      
-      // Libera a trava após um pequeno delay para garantir
       setTimeout(() => setIsProcessing(false), 500);
     }
   };
@@ -153,6 +140,12 @@ export function GameWrapper() {
   return (
     <div style={{ padding: 40, maxWidth: 900, margin: '0 auto', paddingBottom: 100 }}>
       
+      {/* 1. MODAL DE PERFIL (Novo) */}
+      {isProfileOpen && (
+        <ProfileModal character={character} onClose={() => setIsProfileOpen(false)} />
+      )}
+
+      {/* 2. MODAL DE SELEÇÃO DE ÁREA */}
       {pendingQuest && (
         <AreaSelector 
           userLevel={character.level}
@@ -161,24 +154,51 @@ export function GameWrapper() {
         />
       )}
 
+      {/* 3. BOTÃO ADMIN FLUTUANTE */}
       <AdminPanel onUpdate={fetchCharacter} />
 
-      {/* HEADER */}
+      {/* 4. HEADER DO PERSONAGEM (Atualizado com Avatar) */}
       <header style={{ 
         background: '#202024', padding: 24, borderRadius: 8, 
         display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'center',
         opacity: activeQuest ? 0.5 : 1, transition: 'opacity 0.3s'
       }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
-            {character.name}
-            <span style={{ background: '#8257e5', fontSize: 14, padding: '2px 8px', borderRadius: 4, color: 'white' }}>
-              LVL {character.level}
+        {/* Lado Esquerdo: Avatar e Nome */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
+          
+          {/* Botão do Avatar - Abre o Perfil */}
+          <button 
+            onClick={() => setIsProfileOpen(true)}
+            style={{ 
+              width: 50, height: 50, borderRadius: '50%', background: '#323238', 
+              border: '2px solid #8257e5', cursor: 'pointer', padding: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24,
+              overflow: 'hidden', transition: 'transform 0.2s', outline: 'none'
+            }}
+            title="Abrir Perfil Completo"
+            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            🧑‍🚀
+          </button>
+
+          <div>
+            <h1 style={{ margin: 0, fontSize: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
+              {character.name}
+              <span style={{ background: '#8257e5', fontSize: 14, padding: '2px 8px', borderRadius: 4, color: 'white' }}>
+                LVL {character.level}
+              </span>
+            </h1>
+            <span 
+              onClick={() => setIsProfileOpen(true)}
+              style={{ color: '#aaa', fontSize: 14, cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              {character.class.toUpperCase()} (Ver Status)
             </span>
-          </h1>
-          <span style={{ color: '#aaa', fontSize: 14 }}>{character.class.toUpperCase()}</span>
+          </div>
         </div>
         
+        {/* Lado Direito: Status Vitais */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
           <div style={{ display: 'flex', gap: 15, fontSize: 14, color: '#e1e1e6' }}>
             <span>❤️ {character.currentHp} / {character.maxHp} HP</span>
@@ -194,10 +214,11 @@ export function GameWrapper() {
         </div>
       </header>
 
-      {/* CONTEÚDO PRINCIPAL */}
+      {/* 5. ÁREA DE CONTEÚDO */}
       <div style={{ marginTop: 40 }}>
         
         {activeQuest && activeArea ? (
+          // Combate (Timer)
           <ActiveQuest 
             quest={activeQuest} 
             area={activeArea}
@@ -205,6 +226,7 @@ export function GameWrapper() {
             onCancel={handleQuestCancel}
           />
         ) : (
+          // Lista de Tarefas + RPG
           <>
             <h2 style={{ marginBottom: 10 }}>📜 Diário de Missões</h2>
             <QuestBoard onStartQuest={handleStartClick} />
@@ -216,7 +238,6 @@ export function GameWrapper() {
             }}>
               <CharacterStats character={character} />
               
-              {/* Agora passamos onUpdate para o Inventário poder atualizar o Ouro ao vender itens */}
               <Inventory items={character.inventory} onUpdate={fetchCharacter} />
             </div>
           </>

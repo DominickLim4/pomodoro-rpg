@@ -10,23 +10,33 @@ export interface Attributes {
   luk: number; // Sorte (Crítico/Drops)
 }
 
-export interface Character {
-  uid: string;
+// Status Derivados (Calculados)
+export interface CombatStats {
+  hp: number;
+  sp: number; // Mana (Futuro)
+  atk: number;
+  matk: number;
+  def: number; // Defesa Física
+  mdef: number; // Defesa Mágica
+  hit: number; // Precisão
+  flee: number; // Esquiva
+  aspd: number; // Velocidade de Ataque (Golpes por segundo)
+  crit: number; // Chance Crítica (%)
+}
+
+// Slots de Equipamento
+export type EquipmentSlot = 'head' | 'body' | 'weapon' | 'accessory' | 'legs';
+
+export interface InventoryItem {
+  id: string;
   name: string;
-  class: CharacterClass;
-  level: number;
-  xp: number;
-  gold: number;
-  
-  // Stats de Vida
-  maxHp: number;
-  currentHp: number;
-  
-  // Sistema de Atributos
-  attributes: Attributes;
-  statPoints: number; // Pontos livres para distribuir
-  
-  createdAt: Date;
+  quantity: number;
+  // Novos campos opcionais para equipamentos
+  type?: 'material' | 'equipment' | 'consumable';
+  slot?: EquipmentSlot;
+  stats?: Partial<Attributes>; // Ex: Espada dá +5 STR
+  atk?: number; // Dano da arma
+  def?: number; // Defesa da armadura
 }
 
 export interface InventoryItem {
@@ -49,9 +59,14 @@ export interface Character {
   attributes: Attributes;
   statPoints: number;
 
-  // NOVO: A Mochila do Jogador
+  // A Mochila do Jogador
   inventory: InventoryItem[]; 
-  
+    
+  // O que está equipado no corpo
+  equipment: {
+    [key in EquipmentSlot]?: InventoryItem;
+  };
+
   createdAt: Date;
 }
 

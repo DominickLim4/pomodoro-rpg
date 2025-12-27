@@ -39,8 +39,11 @@ export const createCharacter = async (userId: string, name: string, classe: Char
     maxHp: stats.maxHp,
     currentHp: stats.maxHp,
     attributes: stats.attrs, // Adiciona os atributos iniciais
-    statPoints: 0,           // Começa com 0 pontos para gastar
+    statPoints: 0,
+               // Começa com 0 pontos para gastar
     inventory: [],
+    equipment: {},
+    
     createdAt: new Date()
   };
 
@@ -170,40 +173,41 @@ export const processCombatResult = async (userId: string, result: CombatResult) 
   });
 };
 
-export const sellItem = async (userId: string, itemId: string) => {
+export const sellItemBatch = async (userId: string, itemId: string, amount: number) => {
   const charRef = doc(db, 'users', userId, 'character', 'main');
   const docSnap = await getDoc(charRef);
-  
   if (!docSnap.exists()) return;
   const char = docSnap.data() as Character;
 
   const inventory = char.inventory || [];
   const itemIndex = inventory.findIndex(i => i.id === itemId);
 
-  if (itemIndex === -1) return; // Item não existe
+  if (itemIndex === -1) return;
 
-  // 1. Achar o preço do item (buscando no gameData)
-  // Varre todas as áreas e inimigos pra achar o item original e pegar o preço
+  // Lógica de Preço (Igual antes)
   let price = 0;
+  // ... (Lógica de buscar preço nas AREAS igualzinha a anterior) ...
+  // ... Se quiser, extraia essa busca de preço para uma função auxiliar 'getItemPrice(id)'
+  
+  // Hardcode rápido pro exemplo:
   for (const area of AREAS) {
-    for (const enemy of area.enemies) {
-      const found = enemy.drops.find(d => d.id === itemId);
-      if (found) price = found.sellPrice;
-    }
+     for (const enemy of area.enemies) {
+       const found = enemy.drops.find(d => d.id === itemId);
+       if (found) price = found.sellPrice;
+     }
   }
-  // Fallback se não achar (preço padrão 1)
-  if (price === 0) price = 1; 
+  if (price === 0) price = 1;
 
-  // 2. Atualizar Quantidade e Ouro
-  if (inventory[itemIndex].quantity > 1) {
-    inventory[itemIndex].quantity -= 1;
+  // Atualiza
+  if (inventory[itemIndex].quantity > amount) {
+    inventory[itemIndex].quantity -= amount;
   } else {
-    // Se só tem 1, remove do array
+    // Vendeu tudo ou mais do que tinha
     inventory.splice(itemIndex, 1);
   }
 
   await updateDoc(charRef, {
     inventory: inventory,
-    gold: char.gold + price
+    gold: char.gold + (price * amount)
   });
 };
